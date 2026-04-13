@@ -1,0 +1,28 @@
+{
+  "name": "pi-experiment",
+  "version": "1.0.0",
+  "description": "Reference Mutiro chatbridge adapters built on top of Pi",
+  "scripts": {
+    "bridge": "tsx mutiro-pi-bridge.ts",
+    "nano": "tsx mutiro-pi-nano-bridge.ts",
+    "interactive": "tsx mutiro-pi-interactive-bridge.ts",
+    "check": "tsc -p tsconfig.json --noEmit"
+  },
+  "keywords": [
+    "mutiro",
+    "chatbridge",
+    "pi",
+    "agent"
+  ],
+  "license": "ISC",
+  "dependencies": {
+    "@mariozechner/pi-coding-agent": "^0.66.1",
+    "@sinclair/typebox": "^0.34.49"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.2",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.2"
+  },
+  "type": "module"
+}
