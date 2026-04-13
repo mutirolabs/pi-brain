@@ -99,6 +99,40 @@ const shortMessageId = (value?: string) => {
   return id.length <= 8 ? id : id.slice(-8);
 };
 
+/**
+ * Converts a normalized bridge message into plain text for the LLM.
+ *
+ * The host delivers messages as `envelope.payload.message` with the following shape:
+ *
+ *   { text?: string, parts?: ChatBridgeMessagePart[], reply_to_message_id?: string, ... }
+ *
+ * `parts` is an array of flat objects, each carrying a `type` string discriminator.
+ * The host digests the raw wire format into this clean shape before delivery, so
+ * brain implementations only need to care about the fields documented below.
+ *
+ * ## Part types and when they arrive
+ *
+ * | type          | when it arrives                                          | what we extract                                            |
+ * |---------------|----------------------------------------------------------|------------------------------------------------------------|
+ * | `text`        | User sends a normal typed message                        | `part.text` verbatim                                       |
+ * | `audio`       | User sends a voice message (host transcribes upstream)   | `part.transcript` — the transcribed text                   |
+ * | `image`       | User shares a photo or screenshot                        | `[Image attachment: <caption>]` placeholder                |
+ * | `file`        | User shares a document (PDF, etc.)                       | `[File attachment: <filename> — <caption>]` placeholder    |
+ * | `card`        | An agent sends an interactive A2UI card into the chat    | `[Interactive card: <card_id>]` placeholder                |
+ * | `card_action` | A user clicks/submits on an interactive card             | `[Card interaction: card=… action=… data=…]`               |
+ * | `contact`     | User shares another member's contact                     | `[Shared contact: Name (@username, role)]`                 |
+ * | `reaction`    | User adds or removes an emoji reaction on a message      | `[reacted 👍 to #<msgId>]` or `[removed reaction …]`      |
+ * | `live_call`   | A voice call ends — system posts a summary to the thread | Full summary with action items and follow-ups              |
+ *
+ * Note: for `image` and `file` parts, the host downloads the actual files into
+ * `{agent_workspace}/Downloads/` before delivering the message. The download paths are
+ * communicated separately via `envelope.payload.attachment_context` (see `buildObservedTurn`),
+ * not through this function. This function only produces the inline text placeholders.
+ *
+ * @see `buildObservedTurn` — assembles the final text by combining this function's output
+ *   with `attachment_context` (the host's download notification listing local file paths).
+ * @see https://docs.mutiro.com/chatbridge-protocol — canonical protocol reference.
+ */
 const extractBridgeMessageText = (message?: any) => {
   if (!message) return "";
 
@@ -671,9 +705,32 @@ const createSessionStore = (deps: {
   return { getOrCreateSession, getSession };
 };
 
+/**
+ * Assembles a promptable {@link ObservedTurn} from an inbound host envelope.
+ *
+ * The text is built in two layers:
+ *
+ * 1. `extractBridgeMessageText(envelope.payload.message)` — converts each message part
+ *    (text, audio transcript, card placeholder, etc.) into inline plain text.
+ *
+ * 2. `envelope.payload.attachment_context` — a host-generated system notification listing
+ *    files the host downloaded into `{agent_workspace}/Downloads/` before delivering this
+ *    envelope. For image and file parts, the host fetches the actual bytes from storage and
+ *    saves them locally so the brain can read/analyze them. The notification looks like:
+ *
+ *      [SYSTEM: Downloaded 2 attachment(s) to your workspace:
+ *      • photo.jpg → /workspace/Downloads/photo.jpg
+ *        Image: 1920x1080 pixels, JPG, 2.1 MB
+ *      • report.pdf → /workspace/Downloads/report.pdf
+ *        File type: PDF, 450.3 KB
+ *      These files are now available in your workspace. ...]
+ *
+ *    This is appended directly to the text so the LLM sees both the part-level description
+ *    (e.g. "[Image attachment: sunset photo]") and the concrete local path it can reference.
+ *
+ * Returns null if any required field (conversationId, messageId, or text) is missing.
+ */
 const buildObservedTurn = (envelope: any): ObservedTurn | null => {
-  // The host already normalized attachments and transcripts for us. The bridge
-  // brain just needs to turn the observed payload into promptable text.
   const conversationId = envelope.conversation_id || envelope.payload?.message?.conversation_id;
   const messageId = envelope.message_id || envelope.payload?.message?.id;
   let text = extractBridgeMessageText(envelope.payload?.message);
