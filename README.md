@@ -6,16 +6,11 @@ Use this repo if you want to swap Mutiro's built-in brain and create your own br
 
 ### 1. If you do not have a Mutiro agent yet, create one
 
-The easiest path is to use the Mutiro guide and let Claude or ChatGPT walk you through it:
+Paste this into your preferred coding agent:
 
-- Claude:
-  `https://claude.ai/new?q=Read%20this%20page%20from%20the%20Mutiro%20docs%3A%20https%3A%2F%2Fmutiro.com%2Fdocs%2Fguides%2Fcreate-agent.md%20and%20help%20me%20create%20an%20agent%20step%20by%20step.`
-- ChatGPT:
-  `https://chatgpt.com/?q=Read%20this%20page%20from%20the%20Mutiro%20docs%3A%20https%3A%2F%2Fmutiro.com%2Fdocs%2Fguides%2Fcreate-agent.md%20and%20help%20me%20create%20an%20agent%20step%20by%20step.`
-
-Or read the source guide directly:
-
-- `https://mutiro.com/docs/guides/create-agent.md`
+```text
+Read this page from the Mutiro docs: https://mutiro.com/docs/guides/create-agent.md and help me create an agent step by step.
+```
 
 ### 2. Run this bridge against your agent folder
 
