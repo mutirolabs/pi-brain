@@ -1,8 +1,51 @@
 # Mutiro Pi Bridge Reference
 
-This directory is a small reference package showing how to plug an external brain into Mutiro `chatbridge` using Pi.
+Use this repo if you want to swap Mutiro's built-in brain and create your own brain over `chatbridge`, using Pi as the reference implementation.
 
-Pi is a great fit for this reference: it is interactive, sessionful, and expressive enough to show the bridge model clearly. The broader point is that the same shape can support other external brains too:
+## Quick Start
+
+### 1. If you do not have a Mutiro agent yet, create one
+
+The easiest path is to use the Mutiro guide and let Claude or ChatGPT walk you through it:
+
+- Claude:
+  `https://claude.ai/new?q=Read%20this%20page%20from%20the%20Mutiro%20docs%3A%20https%3A%2F%2Fmutiro.com%2Fdocs%2Fguides%2Fcreate-agent.md%20and%20help%20me%20create%20an%20agent%20step%20by%20step.`
+- ChatGPT:
+  `https://chatgpt.com/?q=Read%20this%20page%20from%20the%20Mutiro%20docs%3A%20https%3A%2F%2Fmutiro.com%2Fdocs%2Fguides%2Fcreate-agent.md%20and%20help%20me%20create%20an%20agent%20step%20by%20step.`
+
+Or read the source guide directly:
+
+- `https://mutiro.com/docs/guides/create-agent.md`
+
+### 2. Run this bridge against your agent folder
+
+Before you start this bridge, stop the normal Mutiro agent/host for that agent first. Do not run the built-in brain and the Pi bridge against the same agent at the same time.
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Run the standard adapter:
+
+```bash
+npm run bridge -- /path/to/agent-directory
+```
+
+You can also use:
+
+```bash
+./run-brain.sh /path/to/agent-directory
+```
+
+That is the shortest path: create a Mutiro agent, then point this bridge at that agent directory.
+
+## What This Repo Is
+
+This repo is a small reference package showing how to plug an external brain into Mutiro `chatbridge` using Pi.
+
+Pi is a strong fit for this reference because it is interactive, sessionful, and expressive enough to show the bridge model clearly. The same overall shape can support other external brains too:
 
 - `mutiro agent host --mode=bridge`
 - NDJSON over stdio
@@ -79,19 +122,6 @@ The nano adapter intentionally does much less.
 This reference does not rebuild full Mutiro history on every turn. It relies on the long-lived Pi session for continuity.
 
 ## Run
-
-Install dependencies first:
-
-```bash
-npm install
-```
-
-Run the standard adapter:
-
-```bash
-npm run bridge -- /path/to/agent-directory
-```
-
 Run the nano adapter:
 
 ```bash
@@ -102,12 +132,6 @@ Run the interactive adapter:
 
 ```bash
 npm run interactive -- /path/to/agent-directory
-```
-
-You can also use:
-
-```bash
-./run-brain.sh /path/to/agent-directory
 ```
 
 The agent directory should be a normal Mutiro agent workspace that `mutiro agent host` can run from.
