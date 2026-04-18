@@ -115,8 +115,18 @@ const shortMessageId = (value?: string) => {
   return id.length <= 8 ? id : id.slice(-8);
 };
 
-const extractBridgeMessageText = (message?: any) => {
+const REACTION_QUOTE_MAX_CHARS = 160;
+
+const truncateReactionQuote = (raw: string): string => {
+  const collapsed = raw.replace(/\s+/g, " ").trim();
+  if (!collapsed) return "";
+  if (collapsed.length <= REACTION_QUOTE_MAX_CHARS) return collapsed;
+  return `${collapsed.slice(0, REACTION_QUOTE_MAX_CHARS - 1).trimEnd()}…`;
+};
+
+const extractBridgeMessageText = (message?: any, replyToMessagePreview?: string) => {
   if (!message) return "";
+  const replyPreview = (replyToMessagePreview || "").trim();
 
   const parts: string[] = [];
   const push = (value?: string) => {
@@ -154,11 +164,19 @@ const extractBridgeMessageText = (message?: any) => {
       case "reaction": {
         const emoji = (part.reaction || "").trim();
         if (!emoji) break;
-        const target = shortMessageId(message.reply_to_message_id);
-        if ((part.reaction_operation || "").trim().toLowerCase() === "removed") {
-          push(target ? `[removed reaction ${emoji} from #${target}]` : `[removed reaction ${emoji}]`);
+        const removed = (part.reaction_operation || "").trim().toLowerCase() === "removed";
+        const quote = truncateReactionQuote(replyPreview);
+        if (quote) {
+          push(removed
+            ? `[reaction ${emoji} removed from message: "${quote}"]`
+            : `[reaction ${emoji} received on message: "${quote}"]`);
         } else {
-          push(target ? `[reacted ${emoji} to #${target}]` : `[reacted ${emoji}]`);
+          const target = shortMessageId(message.reply_to_message_id);
+          if (removed) {
+            push(target ? `[removed reaction ${emoji} from #${target}]` : `[removed reaction ${emoji}]`);
+          } else {
+            push(target ? `[reacted ${emoji} to #${target}]` : `[reacted ${emoji}]`);
+          }
         }
         break;
       }
@@ -429,16 +447,64 @@ const saveSessionMap = (
   );
 };
 
+// In bridge mode the Mutiro host writes slog JSON records to stderr. Parse
+// each line and hand it to logBridge as `host: <msg> key=val ...` so the
+// bridge log is readable instead of leaking raw Go-side records.
+const HOST_ATTR_DROP = new Set(["time", "level", "msg", "component", "agent_username"]);
+
+const formatHostAttrValue = (value: unknown): string => {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") {
+    return String(value);
+  }
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+};
+
+const normalizeHostLogLine = (raw: string): { level: "info" | "warn" | "error"; text: string } => {
+  const trimmed = raw.trim();
+  if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+    try {
+      const parsed = JSON.parse(trimmed) as Record<string, unknown>;
+      if (parsed && typeof parsed.msg === "string") {
+        const rawLevel = typeof parsed.level === "string" ? parsed.level.toLowerCase() : "info";
+        const level = rawLevel === "error" ? "error" : rawLevel === "warn" || rawLevel === "warning" ? "warn" : "info";
+        const attrs = Object.entries(parsed)
+          .filter(([key]) => !HOST_ATTR_DROP.has(key))
+          .map(([key, value]) => `${key}=${formatHostAttrValue(value)}`)
+          .filter((entry) => entry.length > 2);
+        const detail = attrs.length > 0 ? ` ${attrs.join(" ")}` : "";
+        return { level, text: `host: ${parsed.msg}${detail}` };
+      }
+    } catch {
+      // fall through to raw passthrough
+    }
+  }
+  return { level: "info", text: `host: ${trimmed}` };
+};
+
 const createHostProcess = (targetDir: string) => {
   const hostProcess = spawn("mutiro", ["agent", "host", "--mode=bridge"], {
     cwd: targetDir,
     env: process.env,
   });
 
-  hostProcess.stderr.on("data", (chunk) => {
-    logBridge("[Host stderr]", chunk.toString());
+  const stderrReader = readline.createInterface({
+    input: hostProcess.stderr,
+    terminal: false,
   });
+  stderrReader.on("line", (line) => {
+    if (!line.trim()) return;
+    const { level, text } = normalizeHostLogLine(line);
+    logBridge(`[${level}]`, text);
+  });
+
   hostProcess.on("exit", (code) => {
+    stderrReader.close();
     logBridge(`[Bridge] Mutiro host exited with code ${code}`);
   });
 
@@ -702,18 +768,27 @@ const createMutiroTools = (deps: {
     defineTool({
       name: "forward_message",
       label: "Forward Message",
-      description: "Forward an existing message to another conversation.",
+      description: "Forward an existing message to another conversation or directly to a Mutiro user. Provide either `target_conversation_id` or `to_username` (not both).",
       parameters: Type.Object({
         message_id: Type.String({ description: "ID of the message to forward." }),
-        target_conversation_id: Type.String({ description: "ID of the destination conversation." }),
+        target_conversation_id: Type.Optional(Type.String({ description: "ID of the destination conversation." })),
+        to_username: Type.Optional(Type.String({ description: "Destination Mutiro username (direct message). Used when no target_conversation_id is given." })),
         comment: Type.Optional(Type.String({ description: "Optional comment to include with the forward." })),
       }),
       execute: async (_toolCallId, args) => {
         requireBridgeTurnActive();
+        const targetConversationId = (args.target_conversation_id || "").trim();
+        const toUsername = (args.to_username || "").trim().replace(/^@/, "");
+        if (!targetConversationId && !toUsername) {
+          return toolTextResult("forward_message requires either target_conversation_id or to_username.");
+        }
+        if (targetConversationId && toUsername) {
+          return toolTextResult("forward_message accepts only one of target_conversation_id or to_username, not both.");
+        }
         const res = await deps.requestHost("message.forward", {
           "@type": TYPE_URLS.forwardMessageRequest,
           message_id: args.message_id,
-          conversation_id: args.target_conversation_id,
+          ...(targetConversationId ? { conversation_id: targetConversationId } : { to_username: toUsername }),
           comment: args.comment || "",
         });
         return toolTextResult(JSON.stringify(res, null, 2));
@@ -993,7 +1068,7 @@ const createSessionStore = async (deps: {
 const buildObservedTurn = (envelope: any): ObservedTurn | null => {
   const conversationId = envelope.conversation_id || envelope.payload?.message?.conversation_id;
   const messageId = envelope.message_id || envelope.payload?.message?.id;
-  let text = extractBridgeMessageText(envelope.payload?.message);
+  let text = extractBridgeMessageText(envelope.payload?.message, envelope.payload?.reply_to_message_preview);
   const attachmentContext = (envelope.payload?.attachment_context || "").trim();
   if (attachmentContext) {
     text = text ? `${text}${attachmentContext}` : attachmentContext;

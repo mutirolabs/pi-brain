@@ -27,8 +27,36 @@ const pending = new Map<string, { resolve: (v: any) => void; reject: (e: any) =>
 const sessions = new Map<string, { session: any; text: string }>();
 let agentUsername = "";
 
-host.stderr.pipe(process.stderr);
-host.on("exit", (code) => process.exit(code || 0));
+// Parse slog JSON lines from the host and render compactly; fall back to the
+// raw line if it does not look like slog JSON.
+const stderrReader = readline.createInterface({ input: host.stderr, terminal: false });
+stderrReader.on("line", (line) => {
+  const t = line.trim();
+  if (!t) return;
+  if (t.startsWith("{") && t.endsWith("}")) {
+    try {
+      const p = JSON.parse(t);
+      if (p && typeof p.msg === "string") {
+        const drop = new Set(["time", "level", "msg", "component", "agent_username"]);
+        const attrs = Object.entries(p)
+          .filter(([k]) => !drop.has(k))
+          .map(([k, v]) => `${k}=${typeof v === "string" ? v : JSON.stringify(v)}`)
+          .join(" ");
+        const level = (typeof p.level === "string" ? p.level : "info").toLowerCase();
+        const out = `host: ${p.msg}${attrs ? ` ${attrs}` : ""}`;
+        if (level === "error") console.error(out);
+        else if (level === "warn" || level === "warning") console.warn(out);
+        else console.log(out);
+        return;
+      }
+    } catch {}
+  }
+  console.log(`host: ${t}`);
+});
+host.on("exit", (code) => {
+  stderrReader.close();
+  process.exit(code || 0);
+});
 
 const send = (type: string, payload: any, extra: Record<string, string> = {}) =>
   host.stdin.write(`${JSON.stringify({ protocol_version: V, type, request_id: extra.request_id || id(), payload, ...extra })}\n`);
