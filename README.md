@@ -1,20 +1,18 @@
-# Mutiro Pi Bridge Reference
+# Pi Brain for Mutiro
 
-Use this repo if you want to swap Mutiro's built-in brain and create your own brain over `chatbridge`, using Pi as the reference implementation.
+The reference Mutiro chatbridge adapter built on Pi.
+
+Pi handles the cognition. Mutiro handles the messaging surface, identity, and state.
+
+![Mutiro UI](docs/assets/mutiro-pi-ui.png)
+
+## Why this exists
+
+Sovereign intelligence deserves a professional interface. Hiding a powerful Pi brain behind a generic Telegram bot or a clunky webview breaks the user experience and obscures ownership. This bridge connects Pi to Mutiro's native clients (Desktop, Mobile, Web, CLI), enforcing the `by @owner` accountability standard out of the box.
+
+It doubles as a reference implementation: the shape here — handshake, session model, outbound tool surface — is portable to any runtime you want to plug into Mutiro's chatbridge.
 
 ## Quick Start
-
-### 1. If you do not have a Mutiro agent yet, create one
-
-Paste this into your preferred coding agent:
-
-```text
-Read this page from the Mutiro docs: https://mutiro.com/docs/guides/create-agent.md and help me create an agent step by step.
-```
-
-### 2. Run this bridge against your agent folder
-
-Before you start this bridge, stop the normal Mutiro agent/host for that agent first. Do not run the built-in brain and the Pi bridge against the same agent at the same time.
 
 Install dependencies:
 
@@ -22,78 +20,65 @@ Install dependencies:
 npm install
 ```
 
-Run the standard adapter:
+Stop the built-in Mutiro brain for your agent first — two brains on one agent will race on every turn. Verify no host is running with `mutiro agent host status`.
 
-```bash
-npm run bridge -- /path/to/agent-directory
-```
-
-You can also use:
+Point the bridge at your Mutiro agent directory:
 
 ```bash
 ./run-brain.sh /path/to/agent-directory
 ```
 
-That is the shortest path: create a Mutiro agent, then point this bridge at that agent directory.
+Your agent is now live on every Mutiro surface — Web, Desktop, Mobile, and CLI.
 
-## What This Repo Is
+Send a smoke-test message:
 
-This repo is a small reference package showing how to plug an external brain into Mutiro `chatbridge` using Pi.
+```bash
+mutiro user message send <agent-username> "Hello! Who are you?"
+```
 
-Pi is a strong fit for this reference because it is interactive, sessionful, and expressive enough to show the bridge model clearly. The same overall shape can support other external brains too:
+## Variants
 
-- `mutiro agent host --mode=bridge`
-- NDJSON over stdio
-- one long-lived brain process
-- one runtime session per Mutiro conversation
-- all outbound chat actions going back through the bridge
+Three bridge shapes ship in this repo:
 
-## What Is Here
+| Script | What it does |
+|--------|--------------|
+| `mutiro-pi-bridge.ts` | Standard adapter. One Pi session per Mutiro conversation, in-memory. Runs via `./run-brain.sh` or `npm run bridge -- <dir>`. |
+| `mutiro-pi-nano-bridge.ts` | Minimal text-only example. No tools, just text replies and `turn.end`. Runs via `npm run nano -- <dir>`. |
+| `mutiro-pi-interactive-bridge.ts` | Full Pi TUI sharing the same Pi session as Mutiro turns — local TUI and Mutiro conversation share one cognitive session. Runs via `npm run interactive -- <dir>`. |
 
-- `mutiro-pi-bridge.ts`
-  Standard reference adapter. One Pi session per Mutiro conversation, in memory only.
-- `mutiro-pi-nano-bridge.ts`
-  Minimal text-only example. No tools, just signals, text replies, and `turn.end`.
-- `mutiro-pi-interactive-bridge.ts`
-  Full interactive Pi TUI sharing the same underlying session/runtime that Mutiro turns use.
-- `run-brain.sh`
-  Tiny launcher for the standard adapter.
+## Access control, enforced at the edge
 
-## Why This Exists
+Mutiro runs the allowlist on its servers — not in your brain. Denied users are rejected before their messages reach Pi, so brain-side bugs can never leak access to someone who shouldn't have it. This is a stronger posture than in-agent filtering and a real differentiator over generic bot channels.
 
-Use this folder as a reference if you want to integrate another runtime with Mutiro bridge.
+One extra CLI step buys you that posture:
 
-It shows how to:
+```bash
+mutiro agents allowlist get <agent-username>
+mutiro agents allow <agent-username> <username>
+mutiro agents deny <agent-username> <username>
+```
 
-1. Spawn `mutiro agent host --mode=bridge`
-2. Complete `ready -> session.initialize -> subscription.set`
-3. Receive `message.observed`
-4. Turn inbound Mutiro messages into runtime prompts
-5. Execute outbound chat actions only through the bridge
-6. Finish turns with `turn.end`
+## Reference
 
-## Important Bridge Notes
+### Handshake
 
-- `message.send` is a bridge-local command, not a raw backend `SendToConversationRequest`
-- the portable payload type is `mutiro.chatbridge.ChatBridgeSendMessageCommand`
-- `message.send_voice` is also bridge-local and keeps TTS inside the host
-- this reference usually replies by `conversation_id`
-- the bridge also supports `to_username` for direct sends
+Startup:
 
-## Adapter Model
+1. host sends `ready`
+2. brain sends `session.initialize`
+3. brain sends `subscription.set`
+4. host starts delivering `message.observed`
 
-The adapter process is the brain. It:
+Per turn:
 
-- spawns `mutiro agent host --mode=bridge`
-- reads and writes bridge envelopes on stdio
-- keeps one Pi session per `conversation_id`
-- exposes a small Mutiro-oriented tool surface inside Pi
+1. brain acknowledges `message.observed`
+2. brain runs the turn in Pi
+3. brain dispatches zero or more outbound bridge operations
+4. brain sends `turn.end`
 
-The brain does not talk to Mutiro SDKs directly.
+### Supported bridge operations
 
-## Supported Bridge Operations
-
-The full adapter exercises:
+The standard adapter exercises:
 
 - `message.send`
 - `message.send_voice`
@@ -107,94 +92,63 @@ The full adapter exercises:
 
 The nano adapter intentionally does much less.
 
-## Session Model
+### Session model
 
 - one Pi session per Mutiro `conversation_id`
-- later turns in the same conversation reuse that Pi session
+- subsequent turns in the same conversation reuse that Pi session
 - `mutiro-pi-bridge.ts` keeps sessions in memory only
-- `mutiro-pi-interactive-bridge.ts` persists the Pi session-path mapping in the agent workspace so the same conversation can reopen the same Pi session later
+- `mutiro-pi-interactive-bridge.ts` persists the Pi session-path mapping in the agent workspace so the same conversation can reopen the same Pi session across restarts
 
-This reference does not rebuild full Mutiro history on every turn. It relies on the long-lived Pi session for continuity.
+This reference does not rebuild full Mutiro history on every turn — it relies on the long-lived Pi session for continuity.
 
-## Run
-Run the nano adapter:
+### Important bridge notes
 
-```bash
-npm run nano -- /path/to/agent-directory
-```
+- `message.send` is a bridge-local command, not a raw backend `SendToConversationRequest`
+- the portable payload type is `mutiro.chatbridge.ChatBridgeSendMessageCommand`
+- `message.send_voice` keeps TTS inside the host
+- this reference replies by `conversation_id`; the bridge also supports `to_username` for direct sends
 
-Run the interactive adapter:
-
-```bash
-npm run interactive -- /path/to/agent-directory
-```
-
-The agent directory should be a normal Mutiro agent workspace that `mutiro agent host` can run from.
-
-## Handshake
-
-Startup flow:
-
-1. host sends `ready`
-2. brain sends `session.initialize`
-3. brain sends `subscription.set`
-4. host starts delivering `message.observed`
-
-Per turn:
-
-1. brain acknowledges `message.observed`
-2. brain runs the turn in Pi
-3. brain sends zero or more outbound bridge operations
-4. brain sends `turn.end`
-
-## Interactive Variant
-
-`mutiro-pi-interactive-bridge.ts` is the most interesting example.
-
-It uses Pi's normal interactive UI while sharing the same runtime/session layer that Mutiro turns use. That means:
-
-- Mutiro messages and local TUI usage can share one Pi cognitive session
-- bridge tools stay gated to live Mutiro-owned turns
-- local TUI prompts stay local
-
-This is useful as a reference for “swap the brain, keep the host and session semantics” experiments.
-
-## Debugging
+### Debugging
 
 Useful signals while integrating:
 
-- `Handshake failed`
-  Bridge startup or negotiation problem.
-- `Host error`
-  A bridge request failed outside a pending request path.
-- `react_to_message failed`
-  The adapter reached the bridge and got a real host-side error.
+- `Handshake failed` — bridge startup or negotiation problem
+- `Host error` — a bridge request failed outside a pending request path
+- `react_to_message failed` — the adapter reached the bridge and got a real host-side error
 
-The interactive adapter also writes bridge diagnostics to:
+The interactive adapter also writes diagnostics to `<agent-dir>/.mutiro-pi-interactive-bridge.log`.
 
-```text
-<agent-dir>/.mutiro-pi-interactive-bridge.log
-```
-
-## Type Checking
-
-This folder now has its own `tsconfig.json`. Use:
+### Type checking
 
 ```bash
 npm run check
 ```
 
-It runs with `skipLibCheck` because Pi's dependency tree currently includes noisy external type issues that are not specific to this reference code.
+Runs with `skipLibCheck` because Pi's dependency tree currently includes noisy external type issues that are not specific to this reference code.
 
-## What To Copy
+## FAQ
 
-If you are integrating another runtime, the most useful pieces to copy are:
+**I don't have a Mutiro agent yet — what's the fastest way to create one?**
+
+Paste this prompt into your AI assistant (Claude, Cursor, Windsurf, …):
+
+> Read https://mutiro.com/docs/guides/create-agent.md and help me create a Mutiro agent step by step.
+
+Or follow the [Mutiro create-agent guide](https://www.mutiro.com/docs/guides/create-agent.md) by hand.
+
+**Can I use this as a template for my own brain?**
+
+Yes — that's the point. The pieces worth copying into your own bridge:
 
 - bridge handshake flow
-- pending request correlation by `request_id`
-- `message.observed` acknowledgement behavior
+- pending-request correlation by `request_id`
+- `message.observed` acknowledgement (ack now, reply later)
 - per-conversation session cache
 - outbound operation wrappers
 - final `turn.end` behavior
 
-Pi is the star of this reference, and the bridge structure it demonstrates is reusable for other runtimes too.
+## Resources
+
+- [Mutiro documentation](https://mutiro.com/docs)
+- [Pi coding agent](https://github.com/mariozechner/pi)
+- Sibling repo: [`@mutirolabs/openclaw-brain`](https://github.com/mutirolabs/openclaw-brain) — the OpenClaw equivalent, packaged as a channel extension
