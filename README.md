@@ -150,5 +150,5 @@ Yes — that's the point. The pieces worth copying into your own bridge:
 ## Resources
 
 - [Mutiro documentation](https://mutiro.com/docs)
-- [Pi coding agent](https://github.com/mariozechner/pi)
+- [Pi](https://pi.dev)
 - Sibling repo: [`@mutirolabs/openclaw-brain`](https://github.com/mutirolabs/openclaw-brain) — the OpenClaw equivalent, packaged as a channel extension
