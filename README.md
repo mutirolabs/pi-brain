@@ -132,9 +132,9 @@ Runs with `skipLibCheck` because Pi's dependency tree currently includes noisy e
 
 Paste this prompt into your AI assistant (Claude, Cursor, Windsurf, …):
 
-> Read https://mutiro.com/docs/guides/create-agent.md and help me create a Mutiro agent step by step.
+> Read https://mutiro.com/docs/guides/create-agent and help me create a Mutiro agent step by step.
 
-Or follow the [Mutiro create-agent guide](https://www.mutiro.com/docs/guides/create-agent.md) by hand.
+Or follow the [Mutiro create-agent guide](https://www.mutiro.com/docs/guides/create-agent) by hand.
 
 **Can I use this as a template for my own brain?**
 
@@ -149,6 +149,7 @@ Yes — that's the point. The pieces worth copying into your own bridge:
 
 ## Resources
 
-- [Mutiro documentation](https://mutiro.com/docs)
+- [Mutiro manual](https://mutiro.com/docs/manual)
+- [Mutiro CLI reference](https://mutiro.com/docs/cli)
 - [Pi](https://pi.dev)
 - Sibling repo: [`@mutirolabs/openclaw-brain`](https://github.com/mutirolabs/openclaw-brain) — the OpenClaw equivalent, packaged as a channel extension
