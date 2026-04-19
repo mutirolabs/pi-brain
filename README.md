@@ -1,6 +1,6 @@
 # Pi Brain for Mutiro
 
-The reference Mutiro chatbridge adapter built on Pi.
+The reference Mutiro bridge adapter built on Pi.
 
 Pi handles the cognition. Mutiro handles the messaging surface, identity, and state.
 
@@ -10,7 +10,7 @@ Pi handles the cognition. Mutiro handles the messaging surface, identity, and st
 
 Sovereign intelligence deserves a professional interface. Hiding a powerful Pi brain behind a generic Telegram bot or a clunky webview breaks the user experience and obscures ownership. This bridge connects Pi to Mutiro's native clients (Desktop, Mobile, Web, CLI), enforcing the `by @owner` accountability standard out of the box.
 
-It doubles as a reference implementation: the shape here — handshake, session model, outbound tool surface — is portable to any runtime you want to plug into Mutiro's chatbridge.
+It doubles as a reference implementation: the shape here — handshake, session model, outbound tool surface — is portable to any runtime you want to connect to a Mutiro agent.
 
 ## Quick Start
 

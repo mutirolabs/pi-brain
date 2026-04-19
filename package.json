@@ -1,7 +1,7 @@
 {
   "name": "pi-experiment",
   "version": "1.0.0",
-  "description": "Reference Mutiro chatbridge adapters built on top of Pi",
+  "description": "Reference Mutiro bridge adapters built on Pi — swap Mutiro's built-in brain for a Pi-powered agent.",
   "scripts": {
     "bridge": "tsx mutiro-pi-bridge.ts",
     "nano": "tsx mutiro-pi-nano-bridge.ts",
@@ -10,8 +10,8 @@
   },
   "keywords": [
     "mutiro",
-    "chatbridge",
     "pi",
+    "bridge",
     "agent"
   ],
   "license": "ISC",
