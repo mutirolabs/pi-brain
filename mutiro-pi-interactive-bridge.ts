@@ -184,7 +184,10 @@ const extractBridgeMessageText = (message?: any, replyToMessagePreview?: string)
         const summary = (part.summary_text || "").trim();
         const actionItems = Array.isArray(part.action_items) ? part.action_items.map((item: string) => item.trim()).filter(Boolean) : [];
         const followUps = Array.isArray(part.follow_ups) ? part.follow_ups.map((item: string) => item.trim()).filter(Boolean) : [];
-        if (!summary && actionItems.length === 0 && followUps.length === 0) break;
+        // Always emit the header even when all the summary fields are empty.
+        // The part existing is the signal that the call ended; skipping
+        // produces empty turn text and the host drops the envelope with
+        // "no extractable content". Matches host-side normalize.go.
         const lines = [`[Voice call summary (call_id=${(part.call_id || "").trim()}, end_reason=${(part.end_reason || "").trim()})]`];
         if (summary) lines.push(summary);
         if (actionItems.length > 0) lines.push(`Action items:\n${actionItems.map((item: string) => `- ${item}`).join("\n")}`);
