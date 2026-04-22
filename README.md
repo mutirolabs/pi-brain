@@ -128,11 +128,25 @@ Runs with `skipLibCheck` because Pi's dependency tree currently includes noisy e
 
 ## FAQ
 
+**How do I show the Pi badge on my agent?**
+
+Pass `--badge pi` when creating the agent so every Mutiro client renders the Pi mark next to the avatar:
+
+```bash
+mutiro agents create <username> "<Display>" --engine genie --badge pi
+```
+
+For an agent that already exists, flip the badge on with:
+
+```bash
+mutiro agents update-profile <agent-username> --badge pi
+```
+
 **I don't have a Mutiro agent yet — what's the fastest way to create one?**
 
 Paste this prompt into your AI assistant (Claude, Cursor, Windsurf, …):
 
-> Read https://mutiro.com/docs/guides/create-agent and help me create a Mutiro agent step by step.
+> Read https://mutiro.com/docs/guides/create-agent and help me create a Mutiro agent step by step. Use `--badge pi` on `mutiro agents create` so the agent shows the Pi badge.
 
 Or follow the [Mutiro create-agent guide](https://www.mutiro.com/docs/guides/create-agent) by hand.
 
