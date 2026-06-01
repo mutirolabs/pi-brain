@@ -2,6 +2,7 @@ import { createAgentSession, SessionManager } from "@mariozechner/pi-coding-agen
 import { spawn } from "child_process";
 import * as path from "path";
 import * as readline from "readline";
+import { appendAttachmentContext } from "./bridge-message-utils.js";
 
 const V = "mutiro.agent.bridge.v1";
 const T = {
@@ -239,11 +240,7 @@ rl.on("line", async (line) => {
     if (e.type === "message.observed") {
       ack(e.request_id, T.observedAck);
       const m = e.payload?.message;
-      const text = (() => {
-        const content = extractBridgeMessageText(m);
-        const attachmentContext = (e.payload?.attachment_context || "").trim();
-        return attachmentContext ? (content ? `${content}${attachmentContext}` : attachmentContext) : content;
-      })();
+      const text = appendAttachmentContext(extractBridgeMessageText(m), e.payload?.attachment_context);
       if (m?.conversation_id && m?.id && text) await prompt(m.conversation_id, m.id, text, m?.from?.username, m?.reply_to_message_id);
       return;
     }

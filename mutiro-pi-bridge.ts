@@ -12,6 +12,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from "child_process";
 import * as path from "path";
 import * as readline from "readline";
 import { inspect } from "util";
+import { appendAttachmentContext } from "./bridge-message-utils.js";
 
 /**
  * mutiro-pi-bridge.ts
@@ -808,19 +809,19 @@ const createSessionStore = (deps: {
  *        File type: PDF, 450.3 KB
  *      These files are now available in your workspace. ...]
  *
- *    This is appended directly to the text so the LLM sees both the part-level description
- *    (e.g. "[Image attachment: sunset photo]") and the concrete local path it can reference.
+ *    This is appended as a separate block so the LLM sees both the part-level description
+ *    (e.g. "[Image attachment: sunset photo]") and the concrete local path it can reference
+ *    without smashing adjacent prompt text together.
  *
  * Returns null if any required field (conversationId, messageId, or text) is missing.
  */
 const buildObservedTurn = (envelope: any): ObservedTurn | null => {
   const conversationId = envelope.conversation_id || envelope.payload?.message?.conversation_id;
   const messageId = envelope.message_id || envelope.payload?.message?.id;
-  let text = extractBridgeMessageText(envelope.payload?.message, envelope.payload?.reply_to_message_preview);
-  const attachmentContext = (envelope.payload?.attachment_context || "").trim();
-  if (attachmentContext) {
-    text = text ? `${text}${attachmentContext}` : attachmentContext;
-  }
+  const text = appendAttachmentContext(
+    extractBridgeMessageText(envelope.payload?.message, envelope.payload?.reply_to_message_preview),
+    envelope.payload?.attachment_context,
+  );
 
   if (!conversationId || !messageId || !text) {
     return null;

@@ -6,6 +6,7 @@
     "bridge": "tsx mutiro-pi-bridge.ts",
     "nano": "tsx mutiro-pi-nano-bridge.ts",
     "interactive": "tsx mutiro-pi-interactive-bridge.ts",
+    "test": "node --import tsx --test \"*.test.ts\"",
     "check": "tsc -p tsconfig.json --noEmit"
   },
   "keywords": [

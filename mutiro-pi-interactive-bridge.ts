@@ -16,6 +16,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as readline from "readline";
 import { inspect } from "util";
+import { appendAttachmentContext } from "./bridge-message-utils.js";
 
 /**
  * mutiro-pi-interactive-bridge.ts
@@ -1071,11 +1072,10 @@ const createSessionStore = async (deps: {
 const buildObservedTurn = (envelope: any): ObservedTurn | null => {
   const conversationId = envelope.conversation_id || envelope.payload?.message?.conversation_id;
   const messageId = envelope.message_id || envelope.payload?.message?.id;
-  let text = extractBridgeMessageText(envelope.payload?.message, envelope.payload?.reply_to_message_preview);
-  const attachmentContext = (envelope.payload?.attachment_context || "").trim();
-  if (attachmentContext) {
-    text = text ? `${text}${attachmentContext}` : attachmentContext;
-  }
+  const text = appendAttachmentContext(
+    extractBridgeMessageText(envelope.payload?.message, envelope.payload?.reply_to_message_preview),
+    envelope.payload?.attachment_context,
+  );
 
   if (!conversationId || !messageId || !text) {
     return null;
